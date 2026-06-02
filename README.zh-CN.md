@@ -59,7 +59,7 @@ cp -r /path/to/video-agent-skills/video-agent-researcher ~/.claude/skills/
 **方式 B — 克隆仓库，在 CLAUDE.md 里引用路径**
 
 ```bash
-git clone https://github.com/chenhuajinchj/video-agent-skills.git
+git clone https://github.com/chenyuxiaojin/video-agent-skills.git
 ```
 
 然后在你的项目 `CLAUDE.md`（或 `~/.claude/CLAUDE.md`）里告诉 Claude Code 在哪里找这些技能。
@@ -91,7 +91,7 @@ git clone https://github.com/chenhuajinchj/video-agent-skills.git
 
 ## 与同类工具对比
 
-| | video-agent-skills | [xiaochen-skills](https://github.com/chenhuajinchj/xiaochen-skills)（cyxj-ai-weekly-news） | faceless-video / auto-shorts 类生成器 | Anthropic 官方 agent-skills 示例 |
+| | video-agent-skills | [xiaochen-skills](https://github.com/chenyuxiaojin/xiaochen-skills)（cyxj-ai-weekly-news） | faceless-video / auto-shorts 类生成器 | Anthropic 官方 agent-skills 示例 |
 |---|---|---|---|---|
 | 主要用途 | 长视频知识内容（6-15 分钟），从调研到时间轴的完整流水线 | AI 周报摘要 → 抖音短视频（只有选题发现 + 写稿，无完整流水线） | 全自动无脸短视频，人工干预极少 | Agent 模式参考实现，不面向生产使用 |
 | 人工检查点 | 4 个明确审核节点 | 无（全自动） | 无 | 不适用 |
@@ -127,4 +127,4 @@ git clone https://github.com/chenhuajinchj/video-agent-skills.git
 
 ## 开源协议
 
-[MIT](LICENSE) © 2026 chenhuajinchj
+[MIT](LICENSE) © 2026 chenyuxiaojin

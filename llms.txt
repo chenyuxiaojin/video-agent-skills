@@ -9,4 +9,4 @@ A collection of 11 specialized Claude Code skills that form a coordinated video 
 - [中文文档 (README.zh-CN.md)](README.zh-CN.md): 完整中文文档——功能说明、安装方式、使用方法、API 需求和常见问题。
 
 ## Links
-- Repository: https://github.com/chenhuajinchj/video-agent-skills
+- Repository: https://github.com/chenyuxiaojin/video-agent-skills

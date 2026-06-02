@@ -59,7 +59,7 @@ cp -r /path/to/video-agent-skills/video-agent-researcher ~/.claude/skills/
 **Option B — Clone the repo next to your project and add to your CLAUDE.md**
 
 ```bash
-git clone https://github.com/chenhuajinchj/video-agent-skills.git
+git clone https://github.com/chenyuxiaojin/video-agent-skills.git
 ```
 
 Then in your project's `CLAUDE.md` (or `~/.claude/CLAUDE.md`) reference the cloned path so Claude Code can find the skills.
@@ -91,7 +91,7 @@ The producer skill (`video-agent-producer`) orchestrates all pipeline steps and 
 
 ## Compared to alternatives
 
-| | video-agent-skills | [xiaochen-skills](https://github.com/chenhuajinchj/xiaochen-skills) (cyxj-ai-weekly-news) | faceless-video / auto-shorts generators | Anthropic official agent-skills examples |
+| | video-agent-skills | [xiaochen-skills](https://github.com/chenyuxiaojin/xiaochen-skills) (cyxj-ai-weekly-news) | faceless-video / auto-shorts generators | Anthropic official agent-skills examples |
 |---|---|---|---|---|
 | Primary use | Long-form knowledge video (6–15 min), full pipeline from research to timeline | AI weekly news digest → Douyin short clip (topic discovery + script only, no full pipeline) | Fully automated faceless short videos, minimal human control | Reference implementations for agent patterns, not production-ready |
 | Human checkpoints | 4 explicit review gates | None (automated) | None | N/A |
@@ -127,4 +127,4 @@ Yes. Every skill can be triggered independently with a natural-language phrase (
 
 ## License
 
-[MIT](LICENSE) © 2026 chenhuajinchj
+[MIT](LICENSE) © 2026 chenyuxiaojin
