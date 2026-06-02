@@ -1,0 +1,12 @@
+# video-agent-skills
+
+> video-agent-skills is a multi-agent team of Claude Code skills that turns a video topic into a DaVinci/CapCut-ready timeline — from research to publish.
+
+A collection of 11 specialized Claude Code skills that form a coordinated video production pipeline. Ten skills cover the full production chain (analytics → research → script → storyboard → voice → visuals → editing → publish); one skill handles live/presentation scriptwriting as an independent branch. Designed for long-form knowledge video (6–15 min) with human review checkpoints at every critical stage.
+
+## Documentation
+- [README (English)](README.md): Full English documentation — features, install, usage, API requirements, and FAQ.
+- [中文文档 (README.zh-CN.md)](README.zh-CN.md): 完整中文文档——功能说明、安装方式、使用方法、API 需求和常见问题。
+
+## Links
+- Repository: https://github.com/chenhuajinchj/video-agent-skills
