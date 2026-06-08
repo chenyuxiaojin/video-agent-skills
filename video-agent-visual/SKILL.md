@@ -1,8 +1,8 @@
 ---
 name: video-agent-visual
 description: >
-  视频团队的美术师。读取 storyboard.json，通过 Nano Banana（Gemini Image API）
-  批量生成图片素材，支持并发调用和风格配置。
+  视频团队的美术师。读取 storyboard.json，通过 GPTIMG2（gpt-image-2，OpenAI 兼容 API）
+  批量生成 2K 图片素材，支持并发调用和风格配置。
   产出 visuals/*.png + visual-timeline.json + visual-report.md。
   当收到"准备画面素材""获取视觉素材""生成图片"时触发，
   或由制片人（producer）调度时自动触发。
@@ -12,7 +12,7 @@ description: >
 
 ## 职责边界
 
-美术师通过 Nano Banana（Gemini Image API）批量生成图片素材：
+美术师通过 GPTIMG2（gpt-image-2，OpenAI 兼容图片生成 API）批量生成 2K 图片素材：
 - ✅ 读取 `storyboard.json`，理解每个镜头的素材需求
 - ✅ 调用 `generate_images.py` 批量生成图片
 - ✅ 跳过后期制作镜头（数据/文字/分屏），交给剪辑师
@@ -44,10 +44,24 @@ python scripts/generate_images.py <project_dir> [--style <风格>] [--concurrenc
 1. 读取 `storyboard.json`
 2. 过滤掉 `is_post_production: true` 的镜头
 3. 加载风格指令（附加到每个 prompt 前）
-4. 并发调用 Gemini Image API 生成图片
+4. 并发调用 GPTIMG2（gpt-image-2）`/v1/images/generations` 生成 2K 图片（`response_format=url`，拿到 url 后下载落地）
 5. 输出图片到 `visuals/` 目录（001.png, 002.png...）
 6. 生成失败自动重试 1 次
 7. 输出 `visual-report.md` 和 `visual-timeline.json`
+
+### 尺寸说明（2K）
+
+`--aspect-ratio` 按下表映射到 GPTIMG2 的 2K 尺寸（边长对齐 16 的倍数）：
+
+| 宽高比 | 尺寸 |
+|--------|------|
+| 16:9（默认） | 2560x1440 |
+| 9:16 | 1440x2560 |
+| 1:1 | 2048x2048 |
+| 4:3 | 2048x1536 |
+| 3:4 | 1536x2048 |
+
+未列出的比例兜底为 16:9（2560x1440）。当前 storyboard.json 结构不含比例字段，比例由 `--aspect-ratio` 参数决定。
 
 ## 风格配置
 
@@ -121,7 +135,7 @@ python scripts/generate_images.py <project_dir> [--style <风格>] [--concurrenc
 
 - [ ] 所有非后期镜头都有对应的素材文件
 - [ ] 素材文件名与镜头编号一致（001.png, 002.png...）
-- [ ] 宽高比统一为 16:9
+- [ ] 宽高比统一为 16:9（2K，2560x1440）
 - [ ] AI 生成的图片质量可接受（无明显畸变）
 - [ ] visual-timeline.json 格式正确
 - [ ] visual-report.md 已生成
@@ -129,15 +143,22 @@ python scripts/generate_images.py <project_dir> [--style <风格>] [--concurrenc
 
 ## API 配置
 
+GPTIMG2（gpt-image-2）走 OpenAI 兼容 HTTP：`POST {GPTIMG2_BASE_URL}/v1/images/generations`，
+鉴权头 `Authorization: Bearer {GPTIMG2_API_KEY}`，请求体 `response_format=url`，从响应 `data[0].url` 下载图片落地。
+
 | 环境变量 | 用途 |
 |----------|------|
-| GEMINI_API_KEY | Gemini Image API（Nano Banana）图片生成 |
+| GPTIMG2_BASE_URL | GPTIMG2 服务基址（如 `https://api.chatgpt-code.com`，**末尾不带 `/v1`**，脚本自动拼 `/v1/images/generations`） |
+| GPTIMG2_API_KEY | GPTIMG2 API 密钥 |
+
+环境变量优先；缺失时脚本从 `~/项目/自己的应用/密钥存储/.env` 解析同名键。
 
 ## 依赖
 
 - Python 3.10+
-- 标准库：json, pathlib, argparse, urllib, base64, concurrent.futures
-- Gemini API 密钥
+- 标准库：json, os, sys, time, pathlib, argparse, concurrent.futures
+- 第三方：requests（HTTP 调用 GPTIMG2 + 下载图片 url）
+- GPTIMG2 配置（GPTIMG2_BASE_URL / GPTIMG2_API_KEY）
 
 ## 脚本文件
 

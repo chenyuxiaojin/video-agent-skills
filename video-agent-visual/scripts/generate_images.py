@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-批量图片生成脚本 — 读取 storyboard.json，调用 Gemini Image API 生成图片
+批量图片生成脚本 — 读取 storyboard.json，调用 GPTIMG2（gpt-image-2，OpenAI 兼容 API）生成 2K 图片
 
 用法：
     python generate_images.py <project_dir> [--style <风格文件>] [--concurrency <并发数>] [--aspect-ratio <比例>]
@@ -9,26 +9,66 @@
     python generate_images.py ~/CC视频/projects/my-video
     python generate_images.py ~/CC视频/projects/my-video --style tech --concurrency 3
 
-环境变量：
-    GEMINI_API_KEY — Gemini API 密钥
+环境变量（优先读环境变量，否则从 密钥存储/.env 解析）：
+    GPTIMG2_BASE_URL — GPTIMG2 服务基址（如 https://api.chatgpt-code.com，末尾不带 /v1）
+    GPTIMG2_API_KEY  — GPTIMG2 API 密钥
 """
 
 import json
 import os
 import sys
 import time
-import base64
 import argparse
 from pathlib import Path
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError, URLError
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import requests
 
 SCRIPT_DIR = Path(__file__).parent
 STYLES_DIR = SCRIPT_DIR.parent / "styles"
 
-GEMINI_IMAGE_MODEL = "gemini-2.0-flash-exp-image-generation"
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+GPTIMG2_MODEL = "gpt-image-2"
+ENV_FILE = Path("~/项目/自己的应用/密钥存储/.env").expanduser()
+
+# 宽高比 → GPTIMG2 2K 尺寸映射（边长对齐 16 的倍数）
+ASPECT_RATIO_SIZES = {
+    "16:9": "2560x1440",
+    "9:16": "1440x2560",
+    "1:1": "2048x2048",
+    "4:3": "2048x1536",
+    "3:4": "1536x2048",
+}
+DEFAULT_SIZE = "2560x1440"  # 16:9 兜底
+
+
+def load_gptimg2():
+    """读取 GPTIMG2 配置：环境变量优先，否则从 密钥存储/.env 解析。
+
+    返回 (base, key)，base 已规整为不带 /v1 的形式（拼 URL 时自己加 /v1/...）。
+    """
+    base = os.environ.get("GPTIMG2_BASE_URL")
+    key = os.environ.get("GPTIMG2_API_KEY")
+    if (not base or not key) and ENV_FILE.exists():
+        with open(ENV_FILE, encoding="utf-8") as f:
+            for ln in f:
+                ln = ln.strip()
+                if ln.startswith("#") or "=" not in ln:
+                    continue
+                if ln.startswith("GPTIMG2_BASE_URL=") and not base:
+                    base = ln.split("=", 1)[1].strip()
+                elif ln.startswith("GPTIMG2_API_KEY=") and not key:
+                    key = ln.split("=", 1)[1].strip()
+    if not base or not key:
+        return None, None
+    base = base.rstrip("/")
+    if base.endswith("/v1"):
+        base = base[:-3]
+    return base, key
+
+
+def size_for_aspect_ratio(aspect_ratio: str) -> str:
+    """把宽高比映射到 GPTIMG2 的 2K 尺寸字符串，未知比例兜底为 16:9。"""
+    return ASPECT_RATIO_SIZES.get(aspect_ratio.strip(), DEFAULT_SIZE)
 
 
 def load_style(style_name: str) -> str:
@@ -60,9 +100,10 @@ def generate_single_image(
     style_prefix: str,
     aspect_ratio: str,
     output_dir: Path,
+    base_url: str,
     api_key: str,
 ) -> dict:
-    """为单个镜头生成图片，返回结果字典"""
+    """为单个镜头生成图片（GPTIMG2 / gpt-image-2，纯文生图），返回结果字典"""
     shot_num = shot.get("shot_number", 0)
     image_prompt = shot.get("image_prompt", "")
     filename = f"{str(shot_num).zfill(3)}.png"
@@ -78,41 +119,37 @@ def generate_single_image(
         "prompt": image_prompt,
     }
 
-    url = GEMINI_API_URL.format(model=GEMINI_IMAGE_MODEL) + f"?key={api_key}"
-    payload = {
-        "contents": [{"parts": [{"text": full_prompt}]}],
-        "generationConfig": {
-            "responseModalities": ["TEXT", "IMAGE"],
-        },
+    size = size_for_aspect_ratio(aspect_ratio)
+    gen_url = f"{base_url}/v1/images/generations"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
     }
-    data = json.dumps(payload).encode("utf-8")
-    req = Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+    payload = {
+        "model": GPTIMG2_MODEL,
+        "prompt": full_prompt,
+        "size": size,
+        "n": 1,
+        "response_format": "url",
+    }
 
     max_retries = 2
     for attempt in range(max_retries):
         try:
-            with urlopen(req, timeout=120) as resp:
-                resp_data = json.loads(resp.read().decode("utf-8"))
+            resp = requests.post(gen_url, headers=headers, json=payload, timeout=180)
+            resp.raise_for_status()
+            resp_data = resp.json()
 
-            # 从响应中提取图片数据
-            parts = resp_data["candidates"][0]["content"]["parts"]
-            image_data = None
-            for part in parts:
-                if "inlineData" in part:
-                    image_data = part["inlineData"]["data"]
-                    break
-
-            if image_data is None:
-                raise RuntimeError("响应中未找到图片数据")
-
-            # 解码并保存图片
-            img_bytes = base64.b64decode(image_data)
-            output_path.write_bytes(img_bytes)
+            # OpenAI 兼容响应：data[0].url 拿到图片 url，再下载字节落地
+            image_url = resp_data["data"][0]["url"]
+            img_resp = requests.get(image_url, timeout=120)
+            img_resp.raise_for_status()
+            output_path.write_bytes(img_resp.content)
 
             result["status"] = "success"
             return result
 
-        except (HTTPError, URLError, RuntimeError, KeyError, IndexError) as e:
+        except (requests.RequestException, RuntimeError, KeyError, IndexError, ValueError) as e:
             if attempt < max_retries - 1:
                 time.sleep(3)
             else:
@@ -180,9 +217,10 @@ def main():
         print(f"错误：项目目录不存在 {project_dir}")
         sys.exit(1)
 
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        print("错误：请设置 GEMINI_API_KEY 环境变量")
+    base_url, api_key = load_gptimg2()
+    if not base_url or not api_key:
+        print("错误：缺少 GPTIMG2 配置（环境变量 GPTIMG2_BASE_URL / GPTIMG2_API_KEY，")
+        print(f"      或 {ENV_FILE} 中对应键）")
         sys.exit(1)
 
     # 1. 读取分镜
@@ -212,7 +250,9 @@ def main():
         else:
             to_generate.append(shot)
 
+    size = size_for_aspect_ratio(args.aspect_ratio)
     print(f"🖼️  需要生成 {len(to_generate)} 张图片（跳过 {len(results)} 个后期镜头）")
+    print(f"   模型：{GPTIMG2_MODEL} | 比例：{args.aspect_ratio} → 尺寸：{size}")
 
     # 5. 并发生成
     print(f"🚀 开始生成（并发数：{args.concurrency}）...")
@@ -221,7 +261,7 @@ def main():
         for shot in to_generate:
             future = executor.submit(
                 generate_single_image,
-                shot, style_prefix, args.aspect_ratio, visuals_dir, api_key,
+                shot, style_prefix, args.aspect_ratio, visuals_dir, base_url, api_key,
             )
             futures[future] = shot.get("shot_number", 0)
 
