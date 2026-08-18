@@ -1,3 +1,5 @@
+
+
 **English** | [中文文档](README.zh-CN.md)
 
 # video-agent-skills
@@ -105,7 +107,7 @@ The producer skill (`video-agent-producer`) orchestrates all pipeline steps and 
 11 total: 10 pipeline skills (producer → operator → researcher → writer → storyboarder → voice → visual → editor → jianying-editor → publisher) plus 1 independent skill (live-sharing-writer).
 
 **Do I have to use DaVinci Resolve?**
-No. You can use CapCut/JianYing instead — just tell the producer `output_target: "jianying"`. You can also generate both (`output_target: "both"`). The DaVinci path requires DaVinci Resolve Studio to be running; the JianYing path requires VectCutAPI running locally.
+No. The default is DaVinci (`output_target: "resolve"`). You can use CapCut/JianYing instead — just tell the producer `output_target: "jianying"`. You can also generate both (`output_target: "both"`). The DaVinci path requires DaVinci Resolve Studio to be running; the JianYing path requires VectCutAPI running locally.
 
 **How do I install these skills?**
 Copy the skill directories you need into your Claude Code skills folder (see [Install](#install) above). There is no package manager step.
